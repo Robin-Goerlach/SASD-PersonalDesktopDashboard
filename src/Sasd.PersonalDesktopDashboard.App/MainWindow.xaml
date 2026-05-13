@@ -58,10 +58,10 @@
         </StackPanel>
 
         <StackPanel DockPanel.Dock="Bottom">
-          <TextBlock Text="V0.1 Technical Shell"
+          <TextBlock Text="V0.2 Window Foundation"
                      Foreground="{StaticResource SasdMutedTextBrush}"
                      FontSize="12" />
-          <TextBlock Text="Mock data only"
+          <TextBlock Text="Monitor-aware placement"
                      Foreground="{StaticResource SasdMutedTextBrush}"
                      FontSize="12" />
         </StackPanel>

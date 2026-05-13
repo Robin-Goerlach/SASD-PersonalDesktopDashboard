@@ -1,6 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
+
+    <!-- The infrastructure project now contains Windows monitor detection based on
+         System.Windows.Forms.Screen. The application still uses WPF for its UI. -->
+    <UseWindowsForms>true</UseWindowsForms>
+
+    <!-- Allows command-line builds on non-Windows hosts. The resulting library still targets Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <ItemGroup>
