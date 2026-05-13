@@ -1,0 +1,39 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# Visual Studio Code
+.vscode/
+
+# Test results
+TestResults/
+coverage/
+*.trx
+
+# NuGet
+packages/
+*.nupkg
+.nuget/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local runtime configuration and secrets
+appsettings.local.json
+*.local.json
+.env
+.env.*
+
+# Generated documentation
+site/
+docs/_site/

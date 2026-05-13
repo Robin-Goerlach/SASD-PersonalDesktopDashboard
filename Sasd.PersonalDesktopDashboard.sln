@@ -1,0 +1,45 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sasd.PersonalDesktopDashboard.App", "src\Sasd.PersonalDesktopDashboard.App\Sasd.PersonalDesktopDashboard.App.csproj", "{5CFA00C4-9F3B-4D09-8446-00B720B8D001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sasd.PersonalDesktopDashboard.Core", "src\Sasd.PersonalDesktopDashboard.Core\Sasd.PersonalDesktopDashboard.Core.csproj", "{5CFA00C4-9F3B-4D09-8446-00B720B8D002}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sasd.PersonalDesktopDashboard.Infrastructure", "src\Sasd.PersonalDesktopDashboard.Infrastructure\Sasd.PersonalDesktopDashboard.Infrastructure.csproj", "{5CFA00C4-9F3B-4D09-8446-00B720B8D003}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sasd.PersonalDesktopDashboard.Modules", "src\Sasd.PersonalDesktopDashboard.Modules\Sasd.PersonalDesktopDashboard.Modules.csproj", "{5CFA00C4-9F3B-4D09-8446-00B720B8D004}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sasd.PersonalDesktopDashboard.Core.Tests", "tests\Sasd.PersonalDesktopDashboard.Core.Tests\Sasd.PersonalDesktopDashboard.Core.Tests.csproj", "{5CFA00C4-9F3B-4D09-8446-00B720B8D005}"
+EndProject
+Global
+    GlobalSection(SolutionConfigurationPlatforms) = preSolution
+        Debug|Any CPU = Debug|Any CPU
+        Release|Any CPU = Release|Any CPU
+    EndGlobalSection
+    GlobalSection(ProjectConfigurationPlatforms) = postSolution
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D001}.Release|Any CPU.Build.0 = Release|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D002}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D002}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D002}.Release|Any CPU.Build.0 = Release|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D003}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D003}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D003}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D003}.Release|Any CPU.Build.0 = Release|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D004}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D004}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D004}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D004}.Release|Any CPU.Build.0 = Release|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D005}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D005}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D005}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {5CFA00C4-9F3B-4D09-8446-00B720B8D005}.Release|Any CPU.Build.0 = Release|Any CPU
+    EndGlobalSection
+    GlobalSection(SolutionProperties) = preSolution
+        HideSolutionNode = FALSE
+    EndGlobalSection
+EndGlobal

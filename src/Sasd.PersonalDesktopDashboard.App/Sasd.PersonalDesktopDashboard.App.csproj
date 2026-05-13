@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+
+    <!-- Allows command-line builds on non-Windows hosts. The executable still targets Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sasd.PersonalDesktopDashboard.Core\Sasd.PersonalDesktopDashboard.Core.csproj" />
+    <ProjectReference Include="..\Sasd.PersonalDesktopDashboard.Infrastructure\Sasd.PersonalDesktopDashboard.Infrastructure.csproj" />
+    <ProjectReference Include="..\Sasd.PersonalDesktopDashboard.Modules\Sasd.PersonalDesktopDashboard.Modules.csproj" />
+  </ItemGroup>
+</Project>

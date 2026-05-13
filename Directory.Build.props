@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <!-- Keep language features modern while the product still targets .NET 8. -->
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- XML documentation is useful for SASD projects and future generated docs. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Do not fail the early learning shell because every generated/member doc is not perfect yet. -->
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+</Project>

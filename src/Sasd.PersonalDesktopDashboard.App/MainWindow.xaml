@@ -1,0 +1,182 @@
+<Window x:Class="Sasd.PersonalDesktopDashboard.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:Sasd.PersonalDesktopDashboard.App.Converters"
+        mc:Ignorable="d"
+        Title="SASD Personal Desktop Dashboard"
+        Width="1280"
+        Height="760"
+        MinWidth="960"
+        MinHeight="600"
+        Background="{StaticResource SasdBackgroundBrush}"
+        Foreground="{StaticResource SasdTextBrush}"
+        WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded">
+  <Window.Resources>
+    <converters:WidgetStatusToBrushConverter x:Key="WidgetStatusToBrushConverter" />
+
+    <Style x:Key="SidebarButtonStyle" TargetType="Button">
+      <Setter Property="Margin" Value="0,4" />
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{StaticResource SasdTextBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+  </Window.Resources>
+
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="230" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <!-- Sidebar: V0.1 uses it mainly for orientation. Later versions can turn these entries into real commands. -->
+    <Border Grid.Column="0"
+            Background="#111827"
+            BorderBrush="{StaticResource SasdBorderBrush}"
+            BorderThickness="0,0,1,0"
+            Padding="20">
+      <DockPanel LastChildFill="True">
+        <StackPanel DockPanel.Dock="Top">
+          <TextBlock Text="SASD"
+                     FontSize="26"
+                     FontWeight="SemiBold"
+                     Foreground="{StaticResource SasdAccentBrush}" />
+          <TextBlock Text="Personal Dashboard"
+                     Margin="0,2,0,24"
+                     Foreground="{StaticResource SasdMutedTextBrush}" />
+
+          <Button Style="{StaticResource SidebarButtonStyle}" Content="Dashboard" />
+          <Button Style="{StaticResource SidebarButtonStyle}" Content="Compact Mode" />
+          <Button Style="{StaticResource SidebarButtonStyle}" Content="Focus Mode" />
+          <Button Style="{StaticResource SidebarButtonStyle}" Content="Privacy Mode" />
+          <Button Style="{StaticResource SidebarButtonStyle}" Content="Settings" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom">
+          <TextBlock Text="V0.1 Technical Shell"
+                     Foreground="{StaticResource SasdMutedTextBrush}"
+                     FontSize="12" />
+          <TextBlock Text="Mock data only"
+                     Foreground="{StaticResource SasdMutedTextBrush}"
+                     FontSize="12" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Grid Grid.Column="1" Margin="28">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <!-- Header: shows the current mode and provides a manual refresh command. -->
+      <DockPanel Grid.Row="0" Margin="0,0,0,24">
+        <StackPanel DockPanel.Dock="Left">
+          <TextBlock Text="{Binding HeaderTitle}"
+                     FontSize="30"
+                     FontWeight="SemiBold" />
+          <TextBlock Text="{Binding HeaderSubtitle}"
+                     Margin="0,4,0,0"
+                     Foreground="{StaticResource SasdMutedTextBrush}" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+          <TextBlock Text="{Binding RefreshInfo}"
+                     VerticalAlignment="Center"
+                     Margin="0,0,16,0"
+                     Foreground="{StaticResource SasdMutedTextBrush}" />
+          <Button Content="Aktualisieren"
+                  Command="{Binding RefreshCommand}"
+                  Padding="16,8"
+                  Background="{StaticResource SasdAccentSoftBrush}"
+                  Foreground="White"
+                  BorderBrush="{StaticResource SasdAccentBrush}"
+                  Cursor="Hand" />
+        </StackPanel>
+      </DockPanel>
+
+      <!-- Dashboard cards. WrapPanel keeps the first version reasonably usable across different window sizes. -->
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding Widgets}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Width="320"
+                      MinHeight="220"
+                      Margin="0,0,18,18"
+                      Padding="18"
+                      CornerRadius="18"
+                      Background="{StaticResource SasdPanelBrush}"
+                      BorderBrush="{Binding Status, Converter={StaticResource WidgetStatusToBrushConverter}}"
+                      BorderThickness="1">
+                <Grid>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                  </Grid.RowDefinitions>
+
+                  <DockPanel Grid.Row="0">
+                    <TextBlock Text="{Binding Title}"
+                               DockPanel.Dock="Left"
+                               FontSize="18"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Status}"
+                               DockPanel.Dock="Right"
+                               Foreground="{StaticResource SasdMutedTextBrush}"
+                               FontSize="12" />
+                  </DockPanel>
+
+                  <TextBlock Grid.Row="1"
+                             Text="{Binding Subtitle}"
+                             Margin="0,4,0,14"
+                             Foreground="{StaticResource SasdMutedTextBrush}"
+                             TextWrapping="Wrap" />
+
+                  <TextBlock Grid.Row="2"
+                             Text="{Binding PrimaryValue}"
+                             FontSize="34"
+                             FontWeight="SemiBold"
+                             Foreground="{StaticResource SasdAccentBrush}" />
+
+                  <StackPanel Grid.Row="3" Margin="0,10,0,10">
+                    <TextBlock Text="{Binding Description}"
+                               TextWrapping="Wrap"
+                               Foreground="{StaticResource SasdTextBrush}" />
+                    <ItemsControl ItemsSource="{Binding Details}" Margin="0,10,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding StringFormat='• {0}'}"
+                                     Margin="0,2,0,0"
+                                     Foreground="{StaticResource SasdMutedTextBrush}"
+                                     TextWrapping="Wrap" />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+
+                  <TextBlock Grid.Row="4"
+                             Text="{Binding Footer}"
+                             Foreground="{StaticResource SasdMutedTextBrush}"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</Window>
