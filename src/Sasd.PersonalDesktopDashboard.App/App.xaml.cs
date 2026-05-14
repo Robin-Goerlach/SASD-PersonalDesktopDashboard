@@ -8,6 +8,7 @@ using Sasd.PersonalDesktopDashboard.Infrastructure.Configuration;
 using Sasd.PersonalDesktopDashboard.Infrastructure.Logging;
 using Sasd.PersonalDesktopDashboard.Infrastructure.Windows;
 using Sasd.PersonalDesktopDashboard.Modules.MockData;
+using Sasd.PersonalDesktopDashboard.Modules.Registration;
 
 namespace Sasd.PersonalDesktopDashboard.App;
 
@@ -48,7 +49,17 @@ public partial class App : Application
             IDashboardSettingsService settingsService = new JsonDashboardSettingsService(
                 DefaultDashboardPaths.GetSettingsFilePath());
 
-            IDashboardDataService dataService = new MockDashboardDataService();
+            // V0.5 introduces an internal module foundation. The dashboard data
+            // service still presents one simple IDashboardDataService interface to
+            // the view model, but internally it now collects widgets from several
+            // small built-in modules. The same application logger is passed down so
+            // modules can write diagnostics without knowing the file logger.
+            var dashboardModules = DashboardModuleCatalog.CreateDefaultModules();
+            IDashboardDataService dataService = new MockDashboardDataService(
+                dashboardModules,
+                ApplicationLogger.Current);
+
+            ApplicationLogger.Current.Info($"Registered {dashboardModules.Count} internal dashboard modules.");
 
             // V0.2 added the first Windows-specific infrastructure services.
             //
@@ -56,7 +67,6 @@ public partial class App : Application
             // service uses it to keep the window visible when a laptop is undocked
             // or when monitor order changes.
             IDisplayService displayService = new WindowsDisplayService();
-
             IWindowPlacementService windowPlacementService = new JsonWindowPlacementService(
                 DefaultDashboardPaths.GetWindowPlacementFilePath(),
                 displayService);

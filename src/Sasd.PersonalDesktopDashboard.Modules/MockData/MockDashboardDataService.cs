@@ -1,160 +1,150 @@
 using Sasd.PersonalDesktopDashboard.Core.Abstractions;
+using Sasd.PersonalDesktopDashboard.Core.Logging;
 using Sasd.PersonalDesktopDashboard.Core.Models;
+using Sasd.PersonalDesktopDashboard.Core.Modules;
+using Sasd.PersonalDesktopDashboard.Modules.Registration;
 
 namespace Sasd.PersonalDesktopDashboard.Modules.MockData;
 
 /// <summary>
-/// Provides deterministic example data for the first dashboard shell.
+/// Builds dashboard snapshots from the internal built-in dashboard modules.
 /// </summary>
 /// <remarks>
-/// This service deliberately does not call external APIs. The first development goal is a stable
-/// and understandable desktop shell. Real modules can later replace individual cards step by step.
+/// The class name is kept for compatibility with the early project state, but the
+/// implementation is no longer a single hard-coded list of dashboard cards. Instead,
+/// it executes small internal modules and combines their widget results into one
+/// snapshot for the WPF application.
 /// </remarks>
 public sealed class MockDashboardDataService : IDashboardDataService
 {
+    private readonly IReadOnlyList<IDashboardModule> _modules;
+    private readonly IAppLogger _logger;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MockDashboardDataService" /> class
+    /// with the default internal modules and a no-operation logger.
+    /// </summary>
+    /// <remarks>
+    /// This constructor keeps tests and simple manual usage easy. The real application
+    /// should prefer the constructor that receives an explicit module list and logger.
+    /// </remarks>
+    public MockDashboardDataService()
+        : this(DashboardModuleCatalog.CreateDefaultModules(), NullAppLogger.Instance)
+    {
+        // Delegates all setup to the main constructor.
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MockDashboardDataService" /> class.
+    /// </summary>
+    /// <param name="modules">The internal dashboard modules that should provide widget cards.</param>
+    /// <param name="logger">The logger used by the data service and passed to the modules.</param>
+    public MockDashboardDataService(
+        IEnumerable<IDashboardModule> modules,
+        IAppLogger logger)
+    {
+        ArgumentNullException.ThrowIfNull(modules);
+
+        _logger = logger ?? NullAppLogger.Instance;
+        _modules = modules
+            .OrderBy(module => module.SortOrder)
+            .ThenBy(module => module.Id, StringComparer.Ordinal)
+            .ToArray();
+    }
+
     /// <inheritdoc />
-    public Task<DashboardSnapshot> GetDashboardSnapshotAsync(
+    public async Task<DashboardSnapshot> GetDashboardSnapshotAsync(
         DashboardDisplayMode displayMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var widgets = new List<DashboardWidgetModel>
-        {
-            CreateWeatherWidget(),
-            CreateTasksWidget(),
-            CreateCalendarWidget(),
-            CreateNewsWidget(),
-            CreateSystemStatusWidget(),
-            CreateSasdProjectsWidget()
-        };
+        var generatedAtLocal = DateTime.Now;
+        var context = new DashboardModuleContext(displayMode, generatedAtLocal, _logger);
+        var widgets = new List<DashboardWidgetModel>();
 
-        // In a compact mode the first version shows fewer cards. Later this rule should be
-        // moved into a layout policy that can be configured by the user.
-        if (displayMode == DashboardDisplayMode.Compact)
+        _logger.Info($"Building dashboard snapshot for display mode '{displayMode}' using {_modules.Count} internal modules.");
+
+        foreach (var module in _modules)
         {
-            widgets = widgets
-                .Where(widget => widget.Type is DashboardWidgetType.Weather
-                    or DashboardWidgetType.Tasks
-                    or DashboardWidgetType.Calendar)
-                .ToList();
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!module.IsVisibleIn(displayMode))
+            {
+                // Skipped modules are useful to see while developing display modes.
+                // Later this could become Debug-level logging, but the current logger
+                // intentionally only supports a small set of levels.
+                _logger.Info($"Skipping dashboard module '{module.Id}' for display mode '{displayMode}'.");
+                continue;
+            }
+
+            try
+            {
+                _logger.Info($"Executing dashboard module '{module.Id}' ({module.DisplayName}).");
+
+                var widget = await module.BuildWidgetAsync(context, cancellationToken);
+
+                if (widget is not null)
+                {
+                    widgets.Add(widget);
+                    _logger.Info($"Dashboard module '{module.Id}' produced widget '{widget.Id}'.");
+                }
+                else
+                {
+                    _logger.Warning($"Dashboard module '{module.Id}' returned no widget.");
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Cancellation is not a module error. Re-throw so the caller can stop cleanly.
+                throw;
+            }
+            catch (Exception exception)
+            {
+                // A single module should not prevent the complete dashboard from opening.
+                // We log the problem and add a visible diagnostic card so the failure is
+                // easy to notice during development.
+                _logger.Error($"Dashboard module '{module.Id}' failed.", exception);
+                widgets.Add(CreateModuleFailureWidget(module, exception));
+            }
         }
 
-        var snapshot = new DashboardSnapshot
-        {
-            GeneratedAtLocal = DateTime.Now,
-            DisplayMode = displayMode,
-            Widgets = widgets
-        };
+        _logger.Info($"Dashboard snapshot built with {widgets.Count} widgets.");
 
-        return Task.FromResult(snapshot);
+        return new DashboardSnapshot
+        {
+            GeneratedAtLocal = generatedAtLocal,
+            DisplayMode = displayMode,
+            Widgets = widgets,
+        };
     }
 
-    private static DashboardWidgetModel CreateWeatherWidget() => new()
+    /// <summary>
+    /// Creates a visible diagnostic widget for a module failure.
+    /// </summary>
+    /// <param name="module">The module that failed.</param>
+    /// <param name="exception">The exception thrown by the module.</param>
+    /// <returns>A dashboard widget that describes the failure in a developer-friendly way.</returns>
+    private static DashboardWidgetModel CreateModuleFailureWidget(
+        IDashboardModule module,
+        Exception exception)
     {
-        Id = "weather.now",
-        Type = DashboardWidgetType.Weather,
-        Title = "Wetter",
-        Subtitle = "Kleve / Niederrhein · Platzhalterdaten",
-        PrimaryValue = "18 °C",
-        Description = "Leichter Regen möglich, später freundlicher.",
-        Details =
-        [
-            "Nächste 2 h: wechselhaft",
-            "Regenwahrscheinlichkeit: 35 %",
-            "Wind: mäßig aus West"
-        ],
-        Footer = "V0.1 Mock · später Open-Meteo/DWD-Anbindung",
-        Status = WidgetStatus.Info
-    };
-
-    private static DashboardWidgetModel CreateTasksWidget() => new()
-    {
-        Id = "tasks.today",
-        Type = DashboardWidgetType.Tasks,
-        Title = "Aufgaben",
-        Subtitle = "Heute im Fokus",
-        PrimaryValue = "3 wichtig",
-        Description = "Die wichtigsten Aufgaben des Tages werden später aus lokalen Tasks oder TaskHost geladen.",
-        Details =
-        [
-            "V0.1 Technical Shell committen",
-            "Monitorprofile als nächstes planen",
-            "Wettermodul für V0.4 vorbereiten"
-        ],
-        Footer = "Lokale Dummy-Daten · keine Cloud-Verbindung",
-        Status = WidgetStatus.Normal
-    };
-
-    private static DashboardWidgetModel CreateCalendarWidget() => new()
-    {
-        Id = "calendar.next",
-        Type = DashboardWidgetType.Calendar,
-        Title = "Kalender",
-        Subtitle = "Nächster Termin",
-        PrimaryValue = "14:30",
-        Description = "Projektplanung SASD Dashboard.",
-        Details =
-        [
-            "Dauer: 45 Minuten",
-            "Modus: lokal / Platzhalter",
-            "Privacy Mode soll später Details ausblenden"
-        ],
-        Footer = "Kalenderintegration folgt später",
-        Status = WidgetStatus.Normal
-    };
-
-    private static DashboardWidgetModel CreateNewsWidget() => new()
-    {
-        Id = "news.headlines",
-        Type = DashboardWidgetType.News,
-        Title = "Nachrichten",
-        Subtitle = "Lokale, Welt- und IT-News",
-        PrimaryValue = "RSS geplant",
-        Description = "Später sollen kuratierte Quellen statt zufälliger Newsfeeds angezeigt werden.",
-        Details =
-        [
-            "Lokal: Region / Niederrhein",
-            "IT/Security: ausgewählte Quellen",
-            "Wissenschaft: optionaler Feed"
-        ],
-        Footer = "Noch keine externen Abrufe in V0.1",
-        Status = WidgetStatus.Disabled
-    };
-
-    private static DashboardWidgetModel CreateSystemStatusWidget() => new()
-    {
-        Id = "system.local",
-        Type = DashboardWidgetType.SystemStatus,
-        Title = "Systemstatus",
-        Subtitle = Environment.MachineName,
-        PrimaryValue = "OK",
-        Description = "Lokaler Rechnerstatus wird später regelmäßig und ressourcenschonend aktualisiert.",
-        Details =
-        [
-            $"Benutzer: {Environment.UserName}",
-            $"64-bit OS: {(Environment.Is64BitOperatingSystem ? "ja" : "nein")}",
-            $"Prozessoren: {Environment.ProcessorCount}"
-        ],
-        Footer = "Nur einfache .NET-Umgebungsdaten in V0.1",
-        Status = WidgetStatus.Info
-    };
-
-    private static DashboardWidgetModel CreateSasdProjectsWidget() => new()
-    {
-        Id = "sasd.projects",
-        Type = DashboardWidgetType.SasdProjects,
-        Title = "SASD Projekte",
-        Subtitle = "Portfolio- und Produktstatus",
-        PrimaryValue = "Dashboard V0.1",
-        Description = "Diese Karte soll später GitHub, lokale Repositories oder SASD-Projektlisten zusammenfassen.",
-        Details =
-        [
-            "TaskHost: möglicher Task-Lieferant",
-            "LogSink/Mustela: spätere Statusquellen",
-            "Desktop Dashboard: aktuelles Produkt"
-        ],
-        Footer = "V0.1 zeigt bewusst nur Beispielwerte",
-        Status = WidgetStatus.Normal
-    };
+        return new DashboardWidgetModel
+        {
+            Id = $"module.error.{module.Id}",
+            Type = DashboardWidgetType.Notes,
+            Title = "Modulfehler",
+            Subtitle = module.DisplayName,
+            PrimaryValue = "Fehler",
+            Description = $"Das interne Dashboard-Modul '{module.Id}' konnte keine Daten liefern.",
+            Details =
+            [
+                exception.GetType().Name,
+                exception.Message,
+                "Details stehen zusätzlich im AppData-Log.",
+            ],
+            Footer = "Interne Diagnosekarte · später durch bessere Benachrichtigung ersetzen",
+            Status = WidgetStatus.Critical,
+        };
+    }
 }
