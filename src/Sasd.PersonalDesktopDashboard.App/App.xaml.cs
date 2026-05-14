@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Threading;
 using Sasd.PersonalDesktopDashboard.App.Logging;
+using Sasd.PersonalDesktopDashboard.App.Tray;
 using Sasd.PersonalDesktopDashboard.App.ViewModels;
 using Sasd.PersonalDesktopDashboard.Core.Abstractions;
 using Sasd.PersonalDesktopDashboard.Infrastructure.Configuration;
@@ -20,9 +21,14 @@ namespace Sasd.PersonalDesktopDashboard.App;
 /// injection container. This keeps the technical shell easy to understand while
 /// the foundation is still being built step by step.
 /// </remarks>
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
-    /// <inheritdoc />
+    private TrayIconController? _trayIconController;
+
+    /// <summary>
+    /// Starts the WPF application and wires the first technical services.
+    /// </summary>
+    /// <param name="e">Startup arguments provided by WPF.</param>
     protected override void OnStartup(StartupEventArgs e)
     {
         // Configure logging as early as possible. From this point on, all startup
@@ -49,9 +55,9 @@ public partial class App : Application
             IDashboardSettingsService settingsService = new JsonDashboardSettingsService(
                 DefaultDashboardPaths.GetSettingsFilePath());
 
-            // V0.5 introduces an internal module foundation. The dashboard data
+            // V0.5 introduced an internal module foundation. The dashboard data
             // service still presents one simple IDashboardDataService interface to
-            // the view model, but internally it now collects widgets from several
+            // the view model, but internally it collects widgets from several
             // small built-in modules. The same application logger is passed down so
             // modules can write diagnostics without knowing the file logger.
             var dashboardModules = DashboardModuleCatalog.CreateDefaultModules();
@@ -74,6 +80,12 @@ public partial class App : Application
             var viewModel = new DashboardViewModel(dataService, settingsService);
             var mainWindow = new MainWindow(viewModel, windowPlacementService);
 
+            // V0.8 tray foundation: create the tray icon after the main window has
+            // been constructed. The controller delegates all UI operations back to
+            // the WPF dispatcher and logs every tray action.
+            _trayIconController = new TrayIconController(mainWindow, ApplicationLogger.Current);
+            ApplicationLogger.Current.Info("Tray icon controller initialized.");
+
             MainWindow = mainWindow;
             mainWindow.Show();
 
@@ -90,12 +102,23 @@ public partial class App : Application
         }
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Releases application-wide resources before WPF shuts down.
+    /// </summary>
+    /// <param name="e">Exit arguments provided by WPF.</param>
     protected override void OnExit(ExitEventArgs e)
     {
         try
         {
             ApplicationLogger.Current.Info("Application shutdown started.");
+
+            // Dispose the tray icon before WPF tears down the application. This is
+            // important because otherwise Windows can keep a stale notification icon
+            // visible until the user moves the mouse over the notification area.
+            _trayIconController?.Dispose();
+            _trayIconController = null;
+            ApplicationLogger.Current.Info("Tray icon controller disposed.");
+
             base.OnExit(e);
             ApplicationLogger.Current.Info("Application shutdown completed.");
         }

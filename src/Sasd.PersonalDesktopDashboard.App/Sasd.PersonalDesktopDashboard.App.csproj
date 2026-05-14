@@ -1,9 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-
+    <!--
+      V0.8 uses System.Windows.Forms.NotifyIcon for the first tray icon foundation.
+      This keeps the implementation small and avoids an additional NuGet dependency.
+    -->
+    <UseWindowsForms>true</UseWindowsForms>
     <!-- Allows command-line builds on non-Windows hosts. The executable still targets Windows. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
@@ -13,4 +18,5 @@
     <ProjectReference Include="..\Sasd.PersonalDesktopDashboard.Infrastructure\Sasd.PersonalDesktopDashboard.Infrastructure.csproj" />
     <ProjectReference Include="..\Sasd.PersonalDesktopDashboard.Modules\Sasd.PersonalDesktopDashboard.Modules.csproj" />
   </ItemGroup>
+
 </Project>
