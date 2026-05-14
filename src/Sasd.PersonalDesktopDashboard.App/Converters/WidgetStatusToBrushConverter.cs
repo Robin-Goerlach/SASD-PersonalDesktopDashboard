@@ -16,7 +16,7 @@ namespace Sasd.PersonalDesktopDashboard.App.Converters;
 public sealed class WidgetStatusToBrushConverter : IValueConverter
 {
     /// <summary>
-    /// Converts a widget status value into a WPF <see cref="Brush"/> used by the dashboard card border.
+    /// Converts a widget status into a WPF <see cref="System.Windows.Media.Brush"/>. used by the dashboard card border.
     /// </summary>
     /// <param name="value">The value supplied by WPF data binding. Expected type: <see cref="WidgetStatus"/>.</param>
     /// <param name="targetType">The target binding type requested by WPF.</param>
