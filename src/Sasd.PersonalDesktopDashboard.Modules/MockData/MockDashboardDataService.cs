@@ -46,6 +46,10 @@ public sealed class MockDashboardDataService : IDashboardDataService
         ArgumentNullException.ThrowIfNull(modules);
 
         _logger = logger ?? NullAppLogger.Instance;
+
+        // Materialize and sort once in the constructor. This keeps snapshot generation
+        // predictable and avoids accidental differences when the caller provides an
+        // enumerable that changes between calls.
         _modules = modules
             .OrderBy(module => module.SortOrder)
             .ThenBy(module => module.Id, StringComparer.Ordinal)
@@ -96,7 +100,8 @@ public sealed class MockDashboardDataService : IDashboardDataService
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                // Cancellation is not a module error. Re-throw so the caller can stop cleanly.
+                // Cancellation is not a module error. Re-throw so the caller can stop
+                // cleanly, for example during shutdown or a later refresh cancellation.
                 throw;
             }
             catch (Exception exception)

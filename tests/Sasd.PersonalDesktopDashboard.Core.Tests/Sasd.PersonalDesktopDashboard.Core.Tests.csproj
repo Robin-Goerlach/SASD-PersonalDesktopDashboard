@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <IsPackable>false</IsPackable>
@@ -19,5 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Sasd.PersonalDesktopDashboard.Core\Sasd.PersonalDesktopDashboard.Core.csproj" />
+    <ProjectReference Include="..\..\src\Sasd.PersonalDesktopDashboard.Modules\Sasd.PersonalDesktopDashboard.Modules.csproj" />
   </ItemGroup>
+
 </Project>
