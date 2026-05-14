@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Threading;
 using Sasd.PersonalDesktopDashboard.App.Logging;
+using Sasd.PersonalDesktopDashboard.App.Runtime;
 using Sasd.PersonalDesktopDashboard.App.Tray;
 using Sasd.PersonalDesktopDashboard.App.ViewModels;
 using Sasd.PersonalDesktopDashboard.Core.Abstractions;
@@ -23,6 +24,7 @@ namespace Sasd.PersonalDesktopDashboard.App;
 /// </remarks>
 public partial class App : System.Windows.Application
 {
+    private SingleInstanceGuard? _singleInstanceGuard;
     private TrayIconController? _trayIconController;
 
     /// <summary>
@@ -35,6 +37,21 @@ public partial class App : System.Windows.Application
         // problems can be written to the AppData log file.
         ApplicationLogger.Configure(new FileAppLogger(FileAppLoggerOptions.CreateDefault()));
         ApplicationLogger.Current.Info("Application startup started.");
+
+        // V0.10 single-instance guard: acquire a named mutex before creating any
+        // WPF windows or tray icons. This prevents duplicate dashboard processes.
+        _singleInstanceGuard = SingleInstanceGuard.CreateDefault(ApplicationLogger.Current);
+        if (!_singleInstanceGuard.TryAcquire())
+        {
+            ApplicationLogger.Current.Warning("Application startup cancelled because another instance is already running.");
+
+            // The second process has no UI yet, so it can shut down immediately.
+            // The existing primary process keeps its window and tray icon.
+            _singleInstanceGuard.Dispose();
+            _singleInstanceGuard = null;
+            Shutdown(0);
+            return;
+        }
 
         // Register a central WPF dispatcher exception hook. This catches many UI
         // thread exceptions and gives us a diagnostic log entry before WPF shows
@@ -98,6 +115,14 @@ public partial class App : System.Windows.Application
             // We log the error and rethrow it so Visual Studio still shows the
             // real failure during debugging.
             ApplicationLogger.Current.Error("Application startup failed.", exception);
+
+            // Startup failed after the mutex was acquired. Release it explicitly so
+            // a later fixed application start is not blocked by this failed process.
+            _trayIconController?.Dispose();
+            _trayIconController = null;
+            _singleInstanceGuard?.Dispose();
+            _singleInstanceGuard = null;
+
             throw;
         }
     }
@@ -119,7 +144,15 @@ public partial class App : System.Windows.Application
             _trayIconController = null;
             ApplicationLogger.Current.Info("Tray icon controller disposed.");
 
+            // Release the single-instance mutex as late as possible, after all normal
+            // shutdown work is finished. This keeps a second process from starting
+            // while the first process is still disposing its tray icon and settings.
+            _singleInstanceGuard?.Dispose();
+            _singleInstanceGuard = null;
+            ApplicationLogger.Current.Info("Single-instance guard disposed.");
+
             base.OnExit(e);
+
             ApplicationLogger.Current.Info("Application shutdown completed.");
         }
         catch (Exception exception)
