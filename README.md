@@ -4,6 +4,18 @@
 
 This repository starts with **V0.1 Technical Shell**. The goal of this first implementation is not yet to connect real APIs, but to create a clean, understandable and extensible Windows/WPF foundation.
 
+## Screenshot
+
+> Preliminary UI design for the prompt library, featuring navigation, search, filtering, a prompt list, and a detail view.
+
+![SASD Personal dashboard on Desktop Screenshot](docs/screenshots/SASD-Personal-dashboard-on-Desktop.png)
+
+If the screenshot is not yet visible in the repository, the file should be placed at the following path:
+
+```text
+/docs/screenshots/SASD-Personal-dashboard-on-Desktop.png
+```
+
 ## V0.1 scope
 
 Implemented in this initial shell:
