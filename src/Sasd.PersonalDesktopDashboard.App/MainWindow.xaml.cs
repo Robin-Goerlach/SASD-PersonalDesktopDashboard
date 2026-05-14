@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using System.Windows;
 using Sasd.PersonalDesktopDashboard.App.Logging;
 using Sasd.PersonalDesktopDashboard.App.ViewModels;
@@ -107,10 +108,10 @@ public partial class MainWindow : Window
         try
         {
             // WPF event handlers cannot be awaited directly by the framework.
-            // For this early shell we call the async view-model method here and
-            // let the view model expose any user-facing error text.
-            ApplicationLogger.Current.Info("Loading dashboard data.");
-            await _viewModel.LoadAsync();
+            // The current display mode is passed explicitly so the very first
+            // dashboard snapshot matches the visual window mode.
+            ApplicationLogger.Current.Info($"Loading dashboard data for display mode '{_displayMode}'.");
+            await _viewModel.LoadAsync(_displayMode);
             ApplicationLogger.Current.Info("Dashboard data loaded.");
         }
         catch (Exception exception)
@@ -151,37 +152,41 @@ public partial class MainWindow : Window
     /// </summary>
     /// <param name="sender">The button that raised the click event.</param>
     /// <param name="e">The routed event arguments.</param>
-    private void CompactModeButton_Click(object sender, RoutedEventArgs e)
+    private async void CompactModeButton_Click(object sender, RoutedEventArgs e)
     {
-        ToggleCompactMode();
+        await ToggleCompactModeAsync();
     }
 
     /// <summary>
     /// Switches between normal dashboard mode and compact mode.
     /// </summary>
-    private void ToggleCompactMode()
+    /// <returns>A task that completes when the visual mode and data mode have been updated.</returns>
+    private async Task ToggleCompactModeAsync()
     {
         var targetMode = _displayMode == DashboardDisplayMode.Compact
             ? DashboardDisplayMode.Dashboard
             : DashboardDisplayMode.Compact;
 
-        ApplyDashboardDisplayMode(targetMode);
+        await ApplyDashboardDisplayModeAsync(targetMode);
     }
 
     /// <summary>
-    /// Applies the requested dashboard display mode to the WPF window.
+    /// Applies the requested dashboard display mode to the WPF window and the dashboard data context.
     /// </summary>
     /// <param name="targetMode">The display mode that should become active.</param>
-    private void ApplyDashboardDisplayMode(DashboardDisplayMode targetMode)
+    /// <returns>A task that completes when the mode switch has finished.</returns>
+    private async Task ApplyDashboardDisplayModeAsync(DashboardDisplayMode targetMode)
     {
         if (_displayMode == targetMode)
         {
             return;
         }
 
+        var previousMode = _displayMode;
+
         try
         {
-            ApplicationLogger.Current.Info($"Switching dashboard display mode from {_displayMode} to {targetMode}.");
+            ApplicationLogger.Current.Info($"Switching dashboard display mode from {previousMode} to {targetMode}.");
 
             if (targetMode == DashboardDisplayMode.Compact)
             {
@@ -195,13 +200,19 @@ public partial class MainWindow : Window
             _displayMode = targetMode;
             UpdateDashboardDisplayModeVisuals();
 
+            // This is the important V0.7 connection: the view model now receives
+            // the same display mode that the window is visually using. Therefore
+            // internal modules can adapt their widgets to Dashboard or Compact.
+            ApplicationLogger.Current.Info($"Reloading dashboard data for display mode '{_displayMode}'.");
+            await _viewModel.ChangeDisplayModeAsync(_displayMode);
+
             ApplicationLogger.Current.Info($"Dashboard display mode is now {_displayMode}.");
         }
         catch (Exception exception)
         {
             // A failed mode switch should not crash the dashboard during early
-            // development. Logging the error gives us enough diagnostic data
-            // while the current usable mode remains on screen.
+            // development. Logging the error gives us diagnostic data while the
+            // current usable mode remains on screen.
             ApplicationLogger.Current.Error("Failed to switch dashboard display mode.", exception);
         }
     }
@@ -233,6 +244,7 @@ public partial class MainWindow : Window
 
         Width = CompactDefaultWidth;
         Height = CompactDefaultHeight;
+
         Title = "SASD Personal Desktop Dashboard - Compact Mode";
     }
 
@@ -247,6 +259,7 @@ public partial class MainWindow : Window
         SidebarColumn.Width = new GridLength(NormalSidebarWidth);
         SidebarPanel.Visibility = Visibility.Visible;
         ContentRoot.Margin = new Thickness(NormalContentMargin);
+
         Title = "SASD Personal Desktop Dashboard";
 
         if (_normalPlacementBeforeCompactMode is not null)
@@ -275,8 +288,8 @@ public partial class MainWindow : Window
         CompactModeButton.Content = isCompactMode ? "Normal Mode" : "Compact Mode";
         HeaderCompactModeButton.Content = isCompactMode ? "Normal" : "Compact";
         ModeStatusText.Text = isCompactMode
-            ? "V0.4 Compact Foundation"
-            : "V0.4 Window + Compact Foundation";
+            ? "V0.7 Compact + Module Context"
+            : "V0.7 Dashboard + Module Context";
     }
 
     /// <summary>
@@ -287,7 +300,7 @@ public partial class MainWindow : Window
     {
         if (_displayMode == DashboardDisplayMode.Compact && _normalPlacementBeforeCompactMode is not null)
         {
-            // V0.4 does not yet persist display mode separately. To avoid
+            // V0.x does not yet persist display mode separately. To avoid
             // surprising the user on the next start, closing from compact mode
             // saves the remembered normal dashboard placement instead of the
             // small compact rectangle.
@@ -374,7 +387,9 @@ public partial class MainWindow : Window
     /// <returns>A safe coordinate value.</returns>
     private static double GetSafeCoordinate(double value)
     {
-        return double.IsNaN(value) || double.IsInfinity(value) ? 0 : value;
+        return double.IsNaN(value) || double.IsInfinity(value)
+            ? 0
+            : value;
     }
 
     /// <summary>
