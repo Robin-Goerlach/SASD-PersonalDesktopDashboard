@@ -52,7 +52,7 @@ public partial class MainWindow : Window
     /// Indicates that the tray menu explicitly requested application shutdown.
     /// </summary>
     /// <remarks>
-    /// Without this flag, the normal WPF <see cref="Closing"/> event handler would also
+    /// Without this flag, the normal WPF Closing event handler would also
     /// convert tray-menu shutdown into a hide-to-tray operation. The flag is set from
     /// <see cref="ExitApplicationFromTray"/> before WPF shutdown begins.
     /// </remarks>
