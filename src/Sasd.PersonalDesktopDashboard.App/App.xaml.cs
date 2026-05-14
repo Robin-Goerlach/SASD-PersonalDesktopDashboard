@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Threading;
+using Sasd.PersonalDesktopDashboard.App.Diagnostics;
 using Sasd.PersonalDesktopDashboard.App.Logging;
 using Sasd.PersonalDesktopDashboard.App.Runtime;
 using Sasd.PersonalDesktopDashboard.App.Tray;
@@ -35,8 +36,14 @@ public partial class App : System.Windows.Application
     {
         // Configure logging as early as possible. From this point on, all startup
         // problems can be written to the AppData log file.
-        ApplicationLogger.Configure(new FileAppLogger(FileAppLoggerOptions.CreateDefault()));
+        FileAppLoggerOptions loggerOptions = FileAppLoggerOptions.CreateDefault();
+        ApplicationLogger.Configure(new FileAppLogger(loggerOptions));
         ApplicationLogger.Current.Info("Application startup started.");
+
+        // V0.11 diagnostics: log the effective paths directly after the logger exists.
+        // This makes it much easier to diagnose AppData and settings issues on another
+        // machine without guessing where the dashboard stored its files.
+        AppDataDiagnostics.LogStartupPaths(ApplicationLogger.Current, loggerOptions);
 
         // V0.10 single-instance guard: acquire a named mutex before creating any
         // WPF windows or tray icons. This prevents duplicate dashboard processes.
@@ -81,7 +88,6 @@ public partial class App : System.Windows.Application
             IDashboardDataService dataService = new MockDashboardDataService(
                 dashboardModules,
                 ApplicationLogger.Current);
-
             ApplicationLogger.Current.Info($"Registered {dashboardModules.Count} internal dashboard modules.");
 
             // V0.2 added the first Windows-specific infrastructure services.
