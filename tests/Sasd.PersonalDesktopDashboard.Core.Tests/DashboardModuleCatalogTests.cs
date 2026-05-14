@@ -25,7 +25,7 @@ public sealed class DashboardModuleCatalogTests
         Assert.Contains("tasks.placeholder", moduleIds);
         Assert.Contains("calendar.placeholder", moduleIds);
         Assert.Contains("news.placeholder", moduleIds);
-        Assert.Contains("system.status", moduleIds);
+        Assert.Contains("system.local", moduleIds);
         Assert.Contains("sasd.projects", moduleIds);
     }
 
