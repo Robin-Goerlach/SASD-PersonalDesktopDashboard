@@ -19,8 +19,22 @@ namespace Sasd.PersonalDesktopDashboard.App;
 /// </remarks>
 public partial class MainWindow : Window
 {
+    private const double NormalMinimumWidth = 960;
+    private const double NormalMinimumHeight = 600;
+    private const double NormalSidebarWidth = 230;
+    private const double NormalContentMargin = 28;
+
+    private const double CompactMinimumWidth = 360;
+    private const double CompactMinimumHeight = 420;
+    private const double CompactDefaultWidth = 430;
+    private const double CompactDefaultHeight = 560;
+    private const double CompactContentMargin = 14;
+
     private readonly DashboardViewModel _viewModel;
     private readonly IWindowPlacementService _windowPlacementService;
+
+    private DashboardDisplayMode _displayMode = DashboardDisplayMode.Dashboard;
+    private WindowPlacementSettings? _normalPlacementBeforeCompactMode;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindow" /> class.
@@ -49,6 +63,11 @@ public partial class MainWindow : Window
         // Closing is used instead of Closed because the WPF properties are still
         // available and represent the final user-visible window state.
         Closing += MainWindow_Closing;
+
+        // The dashboard starts in normal dashboard mode. The visual update keeps
+        // the button labels and mode hint consistent even before the user clicks
+        // the Compact Mode button for the first time.
+        UpdateDashboardDisplayModeVisuals();
     }
 
     /// <summary>
@@ -114,7 +133,7 @@ public partial class MainWindow : Window
         {
             ApplicationLogger.Current.Info("Saving main window placement.");
 
-            var placement = CreateCurrentWindowPlacement();
+            var placement = CreatePlacementForShutdown();
             await _windowPlacementService.SavePlacementAsync(placement);
 
             ApplicationLogger.Current.Info("Main window placement saved.");
@@ -125,6 +144,169 @@ public partial class MainWindow : Window
             // will simply fall back to a safe centered position.
             ApplicationLogger.Current.Error("Failed to save main window placement.", exception);
         }
+    }
+
+    /// <summary>
+    /// Handles clicks on both Compact Mode buttons in the sidebar and the header area.
+    /// </summary>
+    /// <param name="sender">The button that raised the click event.</param>
+    /// <param name="e">The routed event arguments.</param>
+    private void CompactModeButton_Click(object sender, RoutedEventArgs e)
+    {
+        ToggleCompactMode();
+    }
+
+    /// <summary>
+    /// Switches between normal dashboard mode and compact mode.
+    /// </summary>
+    private void ToggleCompactMode()
+    {
+        var targetMode = _displayMode == DashboardDisplayMode.Compact
+            ? DashboardDisplayMode.Dashboard
+            : DashboardDisplayMode.Compact;
+
+        ApplyDashboardDisplayMode(targetMode);
+    }
+
+    /// <summary>
+    /// Applies the requested dashboard display mode to the WPF window.
+    /// </summary>
+    /// <param name="targetMode">The display mode that should become active.</param>
+    private void ApplyDashboardDisplayMode(DashboardDisplayMode targetMode)
+    {
+        if (_displayMode == targetMode)
+        {
+            return;
+        }
+
+        try
+        {
+            ApplicationLogger.Current.Info($"Switching dashboard display mode from {_displayMode} to {targetMode}.");
+
+            if (targetMode == DashboardDisplayMode.Compact)
+            {
+                EnterCompactMode();
+            }
+            else
+            {
+                LeaveCompactMode();
+            }
+
+            _displayMode = targetMode;
+            UpdateDashboardDisplayModeVisuals();
+
+            ApplicationLogger.Current.Info($"Dashboard display mode is now {_displayMode}.");
+        }
+        catch (Exception exception)
+        {
+            // A failed mode switch should not crash the dashboard during early
+            // development. Logging the error gives us enough diagnostic data
+            // while the current usable mode remains on screen.
+            ApplicationLogger.Current.Error("Failed to switch dashboard display mode.", exception);
+        }
+    }
+
+    /// <summary>
+    /// Applies the visual and size changes for compact mode.
+    /// </summary>
+    private void EnterCompactMode()
+    {
+        // Remember the current normal window rectangle before changing the size.
+        // This lets the user return to the previous working position later.
+        _normalPlacementBeforeCompactMode = CreateCurrentWindowPlacement();
+
+        // Width and height changes do not make sense while the window is maximized.
+        // Therefore compact mode first returns the window to normal state.
+        if (WindowState == WindowState.Maximized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        MinWidth = CompactMinimumWidth;
+        MinHeight = CompactMinimumHeight;
+
+        // Hide the navigation sidebar. The header button stays visible so the
+        // user can always return to normal dashboard mode.
+        SidebarPanel.Visibility = Visibility.Collapsed;
+        SidebarColumn.Width = new GridLength(0);
+        ContentRoot.Margin = new Thickness(CompactContentMargin);
+
+        Width = CompactDefaultWidth;
+        Height = CompactDefaultHeight;
+        Title = "SASD Personal Desktop Dashboard - Compact Mode";
+    }
+
+    /// <summary>
+    /// Restores the normal dashboard layout after compact mode.
+    /// </summary>
+    private void LeaveCompactMode()
+    {
+        MinWidth = NormalMinimumWidth;
+        MinHeight = NormalMinimumHeight;
+
+        SidebarColumn.Width = new GridLength(NormalSidebarWidth);
+        SidebarPanel.Visibility = Visibility.Visible;
+        ContentRoot.Margin = new Thickness(NormalContentMargin);
+        Title = "SASD Personal Desktop Dashboard";
+
+        if (_normalPlacementBeforeCompactMode is not null)
+        {
+            // Restore the exact normal window placement that was active before
+            // compact mode was entered. This is more pleasant than returning to
+            // a generic default size.
+            ApplyWindowPlacement(_normalPlacementBeforeCompactMode);
+        }
+        else
+        {
+            // Fallback path for later scenarios where compact mode might be
+            // restored directly from settings without an in-memory normal size.
+            Width = Math.Max(Width, NormalMinimumWidth);
+            Height = Math.Max(Height, NormalMinimumHeight);
+        }
+    }
+
+    /// <summary>
+    /// Updates labels and status text after a mode change.
+    /// </summary>
+    private void UpdateDashboardDisplayModeVisuals()
+    {
+        var isCompactMode = _displayMode == DashboardDisplayMode.Compact;
+
+        CompactModeButton.Content = isCompactMode ? "Normal Mode" : "Compact Mode";
+        HeaderCompactModeButton.Content = isCompactMode ? "Normal" : "Compact";
+        ModeStatusText.Text = isCompactMode
+            ? "V0.4 Compact Foundation"
+            : "V0.4 Window + Compact Foundation";
+    }
+
+    /// <summary>
+    /// Creates the placement that should be saved when the application closes.
+    /// </summary>
+    /// <returns>The placement snapshot that should be persisted.</returns>
+    private WindowPlacementSettings CreatePlacementForShutdown()
+    {
+        if (_displayMode == DashboardDisplayMode.Compact && _normalPlacementBeforeCompactMode is not null)
+        {
+            // V0.4 does not yet persist display mode separately. To avoid
+            // surprising the user on the next start, closing from compact mode
+            // saves the remembered normal dashboard placement instead of the
+            // small compact rectangle.
+            ApplicationLogger.Current.Info("Saving remembered normal placement because the window is currently in compact mode.");
+
+            return new WindowPlacementSettings
+            {
+                Left = _normalPlacementBeforeCompactMode.Left,
+                Top = _normalPlacementBeforeCompactMode.Top,
+                Width = _normalPlacementBeforeCompactMode.Width,
+                Height = _normalPlacementBeforeCompactMode.Height,
+                WindowState = _normalPlacementBeforeCompactMode.WindowState,
+                DisplayDeviceName = _normalPlacementBeforeCompactMode.DisplayDeviceName,
+                DisplayFingerprint = _normalPlacementBeforeCompactMode.DisplayFingerprint,
+                SavedAtUtc = DateTime.UtcNow,
+            };
+        }
+
+        return CreateCurrentWindowPlacement();
     }
 
     /// <summary>
