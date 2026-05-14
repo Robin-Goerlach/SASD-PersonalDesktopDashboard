@@ -14,9 +14,10 @@ namespace Sasd.PersonalDesktopDashboard.App;
 /// Main WPF window for the SASD Personal Desktop Dashboard.
 /// </summary>
 /// <remarks>
-/// The window currently contains the technical dashboard shell. It receives its
-/// view model and infrastructure services from <see cref="App" /> and keeps the
-/// UI-specific lifecycle handling in one place.
+/// The window coordinates the WPF-specific lifecycle: restoring window placement,
+/// loading dashboard data, switching between normal and compact mode, and handling
+/// close-to-tray behavior. Business-like dashboard data remains behind the view model
+/// and module services so the window does not become responsible for module logic.
 /// </remarks>
 public partial class MainWindow : Window
 {
@@ -31,17 +32,34 @@ public partial class MainWindow : Window
     private const double CompactDefaultHeight = 560;
     private const double CompactContentMargin = 14;
 
-    private const bool HideWindowToTrayWhenClosedByUser = true;
+    /// <summary>
+    /// Controls whether the normal window close button hides the dashboard to the tray.
+    /// </summary>
+    /// <remarks>
+    /// This is intentionally <c>static readonly</c> instead of <c>const</c>.
+    /// A <c>const true</c> lets the compiler prove that the opposite branch can never run,
+    /// which produces warning CS0162. Later this value can be replaced by a real user setting.
+    /// </remarks>
+    private static readonly bool HideWindowToTrayWhenClosedByUser = true;
 
     private readonly DashboardViewModel _viewModel;
     private readonly IWindowPlacementService _windowPlacementService;
 
     private DashboardDisplayMode _displayMode = DashboardDisplayMode.Dashboard;
     private WindowPlacementSettings? _normalPlacementBeforeCompactMode;
+
+    /// <summary>
+    /// Indicates that the tray menu explicitly requested application shutdown.
+    /// </summary>
+    /// <remarks>
+    /// Without this flag, the normal WPF <see cref="Closing"/> event handler would also
+    /// convert tray-menu shutdown into a hide-to-tray operation. The flag is set from
+    /// <see cref="ExitApplicationFromTray"/> before WPF shutdown begins.
+    /// </remarks>
     private bool _isExplicitApplicationExitRequested;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MainWindow" /> class.
+    /// Initializes a new instance of the <see cref="MainWindow"/> class.
     /// </summary>
     /// <param name="viewModel">The dashboard view model created in the application composition root.</param>
     /// <param name="windowPlacementService">Service used to restore and save the window position.</param>
@@ -53,24 +71,23 @@ public partial class MainWindow : Window
 
         _viewModel = viewModel;
         _windowPlacementService = windowPlacementService;
-
         DataContext = _viewModel;
 
         ApplicationLogger.Current.Info("Main window initialized.");
 
-        // SourceInitialized is fired after WPF has created the native window
-        // handle but before the user has meaningfully interacted with the window.
-        // This is a good moment to apply a saved position without the dashboard
-        // first appearing on the wrong monitor.
+        // SourceInitialized is fired after WPF has created the native window handle
+        // but before the user has meaningfully interacted with the window. This is a
+        // good moment to apply a saved position without the dashboard first appearing
+        // on the wrong monitor.
         SourceInitialized += MainWindow_SourceInitialized;
 
         // Closing is used instead of Closed because the WPF properties are still
         // available and represent the final user-visible window state.
         Closing += MainWindow_Closing;
 
-        // The dashboard starts in normal dashboard mode. The visual update keeps
-        // the button labels and mode hint consistent even before the user clicks
-        // the Compact Mode button for the first time.
+        // The dashboard starts in normal dashboard mode. The visual update keeps the
+        // button labels and mode hint consistent even before the user clicks the
+        // Compact Mode button for the first time.
         UpdateDashboardDisplayModeVisuals();
     }
 
@@ -94,9 +111,8 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            // Window placement must never prevent the dashboard from starting.
-            // If something goes wrong, WPF will keep the default CenterScreen
-            // behavior defined in XAML.
+            // Window placement must never prevent the dashboard from starting. If something
+            // goes wrong, WPF will keep the default CenterScreen behavior defined in XAML.
             ApplicationLogger.Current.Error("Failed to restore main window placement.", exception);
         }
     }
@@ -110,17 +126,17 @@ public partial class MainWindow : Window
     {
         try
         {
-            // WPF event handlers cannot be awaited directly by the framework.
-            // The current display mode is passed explicitly so the very first
-            // dashboard snapshot matches the visual window mode.
+            // WPF event handlers cannot be awaited directly by the framework. The current
+            // display mode is passed explicitly so the very first dashboard snapshot matches
+            // the visual window mode.
             ApplicationLogger.Current.Info($"Loading dashboard data for display mode '{_displayMode}'.");
             await _viewModel.LoadAsync(_displayMode);
             ApplicationLogger.Current.Info("Dashboard data loaded.");
         }
         catch (Exception exception)
         {
-            // A real data-loading crash should be visible during development, but
-            // the log entry gives us more detail if the exception is reported later.
+            // A real data-loading crash should be visible during development, but the log entry
+            // gives us more detail if the exception is reported later.
             ApplicationLogger.Current.Error("Failed to load dashboard data.", exception);
             throw;
         }
@@ -132,20 +148,20 @@ public partial class MainWindow : Window
     /// <param name="sender">The window that raised the event.</param>
     /// <param name="e">The cancel event arguments.</param>
     /// <remarks>
-    /// In V0.9 the normal window close button no longer exits the application.
-    /// Instead, the dashboard is hidden to the notification area so it can be
-    /// restored from the tray icon. A real application shutdown is still possible
-    /// through the tray menu. That explicit shutdown path sets
-    /// <see cref="_isExplicitApplicationExitRequested" /> before WPF closes the window.
+    /// In V0.9 the normal window close button no longer exits the application. Instead,
+    /// the dashboard is hidden to the notification area so it can be restored from the tray icon.
+    /// A real application shutdown is still possible through the tray menu. That explicit shutdown
+    /// path sets <see cref="_isExplicitApplicationExitRequested"/> before WPF closes the window.
     /// </remarks>
     private async void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         if (ShouldHideToTrayInsteadOfClosing())
         {
-            ApplicationLogger.Current.Info("Main window close requested by user; hiding dashboard to tray instead of exiting.");
+            ApplicationLogger.Current.Info(
+                "Main window close requested by user; hiding dashboard to tray instead of exiting.");
 
-            // Cancel the close operation first. After this point the window remains
-            // alive, and Hide() simply removes it from the taskbar and desktop.
+            // Cancel the close operation first. After this point the window remains alive,
+            // and Hide() simply removes it from the taskbar and desktop.
             e.Cancel = true;
             HideDashboardToTray();
             return;
@@ -154,16 +170,14 @@ public partial class MainWindow : Window
         try
         {
             ApplicationLogger.Current.Info("Saving main window placement.");
-
             var placement = CreatePlacementForShutdown();
             await _windowPlacementService.SavePlacementAsync(placement);
-
             ApplicationLogger.Current.Info("Main window placement saved.");
         }
         catch (Exception exception)
         {
-            // Failure to save the window position is not critical. The next start
-            // will simply fall back to a safe centered position.
+            // Failure to save the window position is not critical. The next start will simply
+            // fall back to a safe centered position.
             ApplicationLogger.Current.Error("Failed to save main window placement.", exception);
         }
     }
@@ -172,24 +186,23 @@ public partial class MainWindow : Window
     /// Determines whether the current close request should hide the window to the tray.
     /// </summary>
     /// <returns>
-    /// <see langword="true" /> when the close request should be converted into a
-    /// tray-hide operation; otherwise, <see langword="false" /> so WPF can continue
-    /// shutting the application down.
+    /// <c>true</c> when the close request should be converted into a tray-hide operation;
+    /// otherwise, <c>false</c> so WPF can continue shutting the application down.
     /// </returns>
     private bool ShouldHideToTrayInsteadOfClosing()
     {
         if (!HideWindowToTrayWhenClosedByUser)
         {
-            // This constant is intentionally kept in one place so it can later be
-            // replaced by a user setting without changing the closing algorithm.
+            // This switch is intentionally kept in one place so it can later be replaced by
+            // a user setting without changing the closing algorithm.
             return false;
         }
 
         if (_isExplicitApplicationExitRequested)
         {
-            // The tray menu explicitly requested an application exit. In that case
-            // we must not cancel Closing, otherwise the application could no longer
-            // be terminated through its own tray menu.
+            // The tray menu explicitly requested an application exit. In that case we must not
+            // cancel Closing, otherwise the application could no longer be terminated through
+            // its own tray menu.
             return false;
         }
 
@@ -249,19 +262,17 @@ public partial class MainWindow : Window
             _displayMode = targetMode;
             UpdateDashboardDisplayModeVisuals();
 
-            // This is the important V0.7 connection: the view model now receives
-            // the same display mode that the window is visually using. Therefore
-            // internal modules can adapt their widgets to Dashboard or Compact.
+            // This is the important V0.7 connection: the view model receives the same display
+            // mode that the window is visually using. Internal modules can therefore adapt their
+            // widgets to Dashboard or Compact.
             ApplicationLogger.Current.Info($"Reloading dashboard data for display mode '{_displayMode}'.");
             await _viewModel.ChangeDisplayModeAsync(_displayMode);
-
             ApplicationLogger.Current.Info($"Dashboard display mode is now {_displayMode}.");
         }
         catch (Exception exception)
         {
-            // A failed mode switch should not crash the dashboard during early
-            // development. Logging the error gives us diagnostic data while the
-            // current usable mode remains on screen.
+            // A failed mode switch should not crash the dashboard during early development.
+            // Logging the error gives us diagnostic data while the current usable mode remains on screen.
             ApplicationLogger.Current.Error("Failed to switch dashboard display mode.", exception);
         }
     }
@@ -271,12 +282,12 @@ public partial class MainWindow : Window
     /// </summary>
     private void EnterCompactMode()
     {
-        // Remember the current normal window rectangle before changing the size.
-        // This lets the user return to the previous working position later.
+        // Remember the current normal window rectangle before changing the size. This lets
+        // the user return to the previous working position later.
         _normalPlacementBeforeCompactMode = CreateCurrentWindowPlacement();
 
-        // Width and height changes do not make sense while the window is maximized.
-        // Therefore compact mode first returns the window to normal state.
+        // Width and height changes do not make sense while the window is maximized. Therefore
+        // compact mode first returns the window to normal state.
         if (WindowState == WindowState.Maximized)
         {
             WindowState = WindowState.Normal;
@@ -285,15 +296,14 @@ public partial class MainWindow : Window
         MinWidth = CompactMinimumWidth;
         MinHeight = CompactMinimumHeight;
 
-        // Hide the navigation sidebar. The header button stays visible so the
-        // user can always return to normal dashboard mode.
+        // Hide the navigation sidebar. The header button stays visible so the user can always
+        // return to normal dashboard mode.
         SidebarPanel.Visibility = Visibility.Collapsed;
         SidebarColumn.Width = new GridLength(0);
         ContentRoot.Margin = new Thickness(CompactContentMargin);
 
         Width = CompactDefaultWidth;
         Height = CompactDefaultHeight;
-
         Title = "SASD Personal Desktop Dashboard - Compact Mode";
     }
 
@@ -308,20 +318,18 @@ public partial class MainWindow : Window
         SidebarColumn.Width = new GridLength(NormalSidebarWidth);
         SidebarPanel.Visibility = Visibility.Visible;
         ContentRoot.Margin = new Thickness(NormalContentMargin);
-
         Title = "SASD Personal Desktop Dashboard";
 
         if (_normalPlacementBeforeCompactMode is not null)
         {
-            // Restore the exact normal window placement that was active before
-            // compact mode was entered. This is more pleasant than returning to
-            // a generic default size.
+            // Restore the exact normal window placement that was active before compact mode was
+            // entered. This is more pleasant than returning to a generic default size.
             ApplyWindowPlacement(_normalPlacementBeforeCompactMode);
         }
         else
         {
-            // Fallback path for later scenarios where compact mode might be
-            // restored directly from settings without an in-memory normal size.
+            // Fallback path for later scenarios where compact mode might be restored directly
+            // from settings without an in-memory normal size.
             Width = Math.Max(Width, NormalMinimumWidth);
             Height = Math.Max(Height, NormalMinimumHeight);
         }
@@ -336,9 +344,7 @@ public partial class MainWindow : Window
 
         CompactModeButton.Content = isCompactMode ? "Normal Mode" : "Compact Mode";
         HeaderCompactModeButton.Content = isCompactMode ? "Normal" : "Compact";
-        ModeStatusText.Text = isCompactMode
-            ? "V0.9 Compact + Tray"
-            : "V0.9 Dashboard + Tray";
+        ModeStatusText.Text = isCompactMode ? "V0.9 Compact + Tray" : "V0.9 Dashboard + Tray";
     }
 
     /// <summary>
@@ -349,11 +355,11 @@ public partial class MainWindow : Window
     {
         if (_displayMode == DashboardDisplayMode.Compact && _normalPlacementBeforeCompactMode is not null)
         {
-            // V0.x does not yet persist display mode separately. To avoid
-            // surprising the user on the next start, closing from compact mode
-            // saves the remembered normal dashboard placement instead of the
-            // small compact rectangle.
-            ApplicationLogger.Current.Info("Saving remembered normal placement because the window is currently in compact mode.");
+            // V0.x does not yet persist display mode separately. To avoid surprising the user on
+            // the next start, closing from compact mode saves the remembered normal dashboard
+            // placement instead of the small compact rectangle.
+            ApplicationLogger.Current.Info(
+                "Saving remembered normal placement because the window is currently in compact mode.");
 
             return new WindowPlacementSettings
             {
@@ -377,8 +383,8 @@ public partial class MainWindow : Window
     /// <param name="placement">The placement settings that should be applied.</param>
     private void ApplyWindowPlacement(WindowPlacementSettings placement)
     {
-        // Manual startup location ensures that WPF does not override the saved
-        // coordinates with the XAML startup behavior.
+        // Manual startup location ensures that WPF does not override the saved coordinates with
+        // the XAML startup behavior.
         WindowStartupLocation = WindowStartupLocation.Manual;
 
         Left = placement.Left;
@@ -386,9 +392,8 @@ public partial class MainWindow : Window
         Width = Math.Max(MinWidth, placement.Width);
         Height = Math.Max(MinHeight, placement.Height);
 
-        // Restore maximized state only after assigning the restore rectangle.
-        // This lets Windows maximize the window on the display where the restored
-        // rectangle belongs.
+        // Restore maximized state only after assigning the restore rectangle. This lets Windows
+        // maximize the window on the display where the restored rectangle belongs.
         WindowState = placement.WindowState == DashboardWindowState.Maximized
             ? WindowState.Maximized
             : WindowState.Normal;
@@ -422,8 +427,8 @@ public partial class MainWindow : Window
     /// <returns>The serializable dashboard window state.</returns>
     private static DashboardWindowState ToDashboardWindowState(WindowState windowState)
     {
-        // Do not persist Minimized. Re-opening a dashboard minimized would feel
-        // like the application did not start, so we treat it as a normal window.
+        // Do not persist Minimized. Re-opening a dashboard minimized would feel like the application
+        // did not start, so we treat it as a normal window.
         return windowState == WindowState.Maximized
             ? DashboardWindowState.Maximized
             : DashboardWindowState.Normal;
@@ -436,9 +441,7 @@ public partial class MainWindow : Window
     /// <returns>A safe coordinate value.</returns>
     private static double GetSafeCoordinate(double value)
     {
-        return double.IsNaN(value) || double.IsInfinity(value)
-            ? 0
-            : value;
+        return double.IsNaN(value) || double.IsInfinity(value) ? 0 : value;
     }
 
     /// <summary>
