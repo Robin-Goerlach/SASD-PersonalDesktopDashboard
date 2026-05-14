@@ -31,11 +31,14 @@ public partial class MainWindow : Window
     private const double CompactDefaultHeight = 560;
     private const double CompactContentMargin = 14;
 
+    private const bool HideWindowToTrayWhenClosedByUser = true;
+
     private readonly DashboardViewModel _viewModel;
     private readonly IWindowPlacementService _windowPlacementService;
 
     private DashboardDisplayMode _displayMode = DashboardDisplayMode.Dashboard;
     private WindowPlacementSettings? _normalPlacementBeforeCompactMode;
+    private bool _isExplicitApplicationExitRequested;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindow" /> class.
@@ -124,12 +127,30 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Saves the current window placement before the window is closed.
+    /// Handles close requests for the dashboard window.
     /// </summary>
     /// <param name="sender">The window that raised the event.</param>
     /// <param name="e">The cancel event arguments.</param>
+    /// <remarks>
+    /// In V0.9 the normal window close button no longer exits the application.
+    /// Instead, the dashboard is hidden to the notification area so it can be
+    /// restored from the tray icon. A real application shutdown is still possible
+    /// through the tray menu. That explicit shutdown path sets
+    /// <see cref="_isExplicitApplicationExitRequested" /> before WPF closes the window.
+    /// </remarks>
     private async void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
+        if (ShouldHideToTrayInsteadOfClosing())
+        {
+            ApplicationLogger.Current.Info("Main window close requested by user; hiding dashboard to tray instead of exiting.");
+
+            // Cancel the close operation first. After this point the window remains
+            // alive, and Hide() simply removes it from the taskbar and desktop.
+            e.Cancel = true;
+            HideDashboardToTray();
+            return;
+        }
+
         try
         {
             ApplicationLogger.Current.Info("Saving main window placement.");
@@ -145,6 +166,34 @@ public partial class MainWindow : Window
             // will simply fall back to a safe centered position.
             ApplicationLogger.Current.Error("Failed to save main window placement.", exception);
         }
+    }
+
+    /// <summary>
+    /// Determines whether the current close request should hide the window to the tray.
+    /// </summary>
+    /// <returns>
+    /// <see langword="true" /> when the close request should be converted into a
+    /// tray-hide operation; otherwise, <see langword="false" /> so WPF can continue
+    /// shutting the application down.
+    /// </returns>
+    private bool ShouldHideToTrayInsteadOfClosing()
+    {
+        if (!HideWindowToTrayWhenClosedByUser)
+        {
+            // This constant is intentionally kept in one place so it can later be
+            // replaced by a user setting without changing the closing algorithm.
+            return false;
+        }
+
+        if (_isExplicitApplicationExitRequested)
+        {
+            // The tray menu explicitly requested an application exit. In that case
+            // we must not cancel Closing, otherwise the application could no longer
+            // be terminated through its own tray menu.
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -288,8 +337,8 @@ public partial class MainWindow : Window
         CompactModeButton.Content = isCompactMode ? "Normal Mode" : "Compact Mode";
         HeaderCompactModeButton.Content = isCompactMode ? "Normal" : "Compact";
         ModeStatusText.Text = isCompactMode
-            ? "V0.7 Compact + Module Context"
-            : "V0.7 Dashboard + Module Context";
+            ? "V0.9 Compact + Tray"
+            : "V0.9 Dashboard + Tray";
     }
 
     /// <summary>

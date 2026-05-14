@@ -87,9 +87,19 @@ public partial class MainWindow
     /// <summary>
     /// Requests application shutdown from the tray menu.
     /// </summary>
+    /// <remarks>
+    /// This method intentionally sets an explicit-exit flag before calling WPF
+    /// shutdown. Without that flag the normal <c>Closing</c> handler would treat
+    /// the close request like a user click on the window X button and would hide
+    /// the dashboard back to the tray instead of allowing the process to exit.
+    /// </remarks>
     public void ExitApplicationFromTray()
     {
         ApplicationLogger.Current.Info("Tray requested application shutdown.");
+
+        // Tell MainWindow.Closing that this is a real shutdown, not a normal
+        // user close request that should be converted into Hide-to-Tray.
+        _isExplicitApplicationExitRequested = true;
 
         // Calling Shutdown() lets WPF close windows normally, which means the
         // existing MainWindow.Closing handler can still save the window placement.
